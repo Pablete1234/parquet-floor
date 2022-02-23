@@ -39,7 +39,7 @@ public class ParquetReadWriteTest {
             valueWriter.write("email", record[1]);
         };
 
-        Hydrator<Map<String, Object>, Map<String, Object>> hydrator = new Hydrator<>() {
+        Hydrator<Map<String, Object>, Map<String, Object>> hydrator = new Hydrator<Map<String, Object>, Map<String, Object>>() {
             @Override
             public Map<String, Object> start() {
                 return new HashMap<>();
@@ -68,8 +68,8 @@ public class ParquetReadWriteTest {
 
             //noinspection unchecked
             assertThat(result, hasItems(
-                    Map.of("id", 1L, "email", "hello1"),
-                    Map.of("id", 2L, "email", "hello2")));
+                    mapOf("id", 1L, "email", "hello1"),
+                    mapOf("id", 2L, "email", "hello2")));
         }
 
         try (Stream<Map<String, Object>> s = ParquetReader.streamContent(parquet, HydratorSupplier.constantly(hydrator), Collections.singleton("id"))) {
@@ -77,8 +77,20 @@ public class ParquetReadWriteTest {
 
             //noinspection unchecked
             assertThat(result, hasItems(
-                    Map.of("id", 1L),
-                    Map.of("id", 2L)));
+                    mapOf("id", 1L),
+                    mapOf("id", 2L)));
         }
     }
+
+    static <K, V> Map<K, V> mapOf(K k1, V v1) {
+        return mapOf(k1, v1, null, null);
+    }
+
+    static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2) {
+        return new HashMap<K, V>(){{
+            put(k1, v1);
+            if (k2 != null) put(k2, v2);
+        }};
+    }
+
 }

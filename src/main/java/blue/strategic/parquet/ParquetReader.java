@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Spliterator;
@@ -73,7 +74,7 @@ public final class ParquetReader<U, S> implements Spliterator<S>, Closeable {
     }
 
     public static <U, S> ParquetReader<U, S> spliterator(InputFile file, HydratorSupplier<U, S> hydrator, Collection<String> columns) throws IOException {
-        Set<String> columnSet = (null == columns) ? Collections.emptySet() : Set.copyOf(columns);
+        Set<String> columnSet = (null == columns) ? Collections.emptySet() : new HashSet<>(columns);
         return new ParquetReader<>(file, columnSet, hydrator);
     }
 
