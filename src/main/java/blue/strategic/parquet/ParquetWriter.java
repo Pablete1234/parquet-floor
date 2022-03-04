@@ -23,48 +23,19 @@ public final class ParquetWriter<T> implements Closeable {
 
     private final org.apache.parquet.hadoop.ParquetWriter<T> writer;
 
-    public static <T> ParquetWriter<T> writeFile(MessageType schema, File out, Dehydrator<T> dehydrator) throws IOException {
-        OutputFile f = new OutputFile() {
-            @Override
-            public PositionOutputStream create(long blockSizeHint) throws IOException {
-                return createOrOverwrite(blockSizeHint);
-            }
-
-            @Override
-            public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
-                FileOutputStream fos = new FileOutputStream(out);
-                return new DelegatingPositionOutputStream(fos) {
-                    @Override
-                    public long getPos() throws IOException {
-                        return fos.getChannel().position();
-                    }
-                };
-            }
-
-            @Override
-            public boolean supportsBlockSize() {
-                return false;
-            }
-
-            @Override
-            public long defaultBlockSize() {
-                return 1024L;
-            }
-        };
-        return writeOutputFile(schema, f, dehydrator);
-    }
-
-    private static <T> ParquetWriter<T> writeOutputFile(MessageType schema, OutputFile file, Dehydrator<T> dehydrator) throws IOException {
-        return new ParquetWriter<>(file, schema, dehydrator);
-    }
-
-    private ParquetWriter(OutputFile outputFile, MessageType schema, Dehydrator<T> dehydrator) throws IOException {
-        this.writer = new Builder<T>(outputFile)
-                .withType(schema)
-                .withDehydrator(dehydrator)
+    public static <T> ParquetWriter.Builder<T> builder(File out, MessageType schema, Dehydrator<T> dehydrator) {
+        return new Builder<T>(new OutputFileImpl(out), schema, dehydrator)
                 .withCompressionCodec(CompressionCodecName.SNAPPY)
-                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_2_0)
-                .build();
+                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_2_0);
+    }
+
+    // Kept for backwards compatibility
+    public static <T> ParquetWriter<T> writeFile(MessageType schema, File out, Dehydrator<T> dehydrator) throws IOException {
+        return builder(out, schema, dehydrator).buildWriter();
+    }
+
+    private ParquetWriter(org.apache.parquet.hadoop.ParquetWriter<T> writer) {
+        this.writer = writer;
     }
 
     public void write(T record) throws IOException {
@@ -76,12 +47,26 @@ public final class ParquetWriter<T> implements Closeable {
         this.writer.close();
     }
 
-    private static final class Builder<T> extends org.apache.parquet.hadoop.ParquetWriter.Builder<T, ParquetWriter.Builder<T>> {
+    public static final class Builder<T> extends org.apache.parquet.hadoop.ParquetWriter.Builder<T, ParquetWriter.Builder<T>> {
         private MessageType schema;
         private Dehydrator<T> dehydrator;
 
-        private Builder(OutputFile file) {
+        public Builder(File file) {
+            super(new OutputFileImpl(file));
+        }
+
+        public Builder(OutputFile of) {
+            super(of);
+        }
+
+        public Builder(File file, MessageType schema, Dehydrator<T> dehydrator) {
+            this(new OutputFileImpl(file), schema, dehydrator);
+        }
+
+        public Builder(OutputFile file, MessageType schema, Dehydrator<T> dehydrator) {
             super(file);
+            this.schema = schema;
+            this.dehydrator = dehydrator;
         }
 
         public ParquetWriter.Builder<T> withType(MessageType schema) {
@@ -94,6 +79,10 @@ public final class ParquetWriter<T> implements Closeable {
             return this;
         }
 
+        public ParquetWriter<T> buildWriter() throws IOException {
+            return new ParquetWriter<>(super.build());
+        }
+
         @Override
         protected ParquetWriter.Builder<T> self() {
             return this;
@@ -102,6 +91,41 @@ public final class ParquetWriter<T> implements Closeable {
         @Override
         protected WriteSupport<T> getWriteSupport(Configuration conf) {
             return new SimpleWriteSupport<>(schema, dehydrator);
+        }
+
+    }
+
+    private static class OutputFileImpl implements OutputFile {
+        private final File out;
+
+        public OutputFileImpl(File out) {
+            this.out = out;
+        }
+
+        @Override
+        public PositionOutputStream create(long blockSizeHint) throws IOException {
+            return createOrOverwrite(blockSizeHint);
+        }
+
+        @Override
+        public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
+            FileOutputStream fos = new FileOutputStream(out);
+            return new DelegatingPositionOutputStream(fos) {
+                @Override
+                public long getPos() throws IOException {
+                    return fos.getChannel().position();
+                }
+            };
+        }
+
+        @Override
+        public boolean supportsBlockSize() {
+            return false;
+        }
+
+        @Override
+        public long defaultBlockSize() {
+            return 1024L;
         }
     }
 
