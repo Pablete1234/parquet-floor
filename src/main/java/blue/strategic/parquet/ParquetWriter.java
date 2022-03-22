@@ -127,6 +127,11 @@ public final class ParquetWriter<T> implements Closeable {
         public long defaultBlockSize() {
             return 1024L;
         }
+
+        @Override
+        public String toString() {
+            return "OutputFile[" + out.getAbsolutePath() + "]";
+        }
     }
 
     private static class SimpleWriteSupport<T> extends WriteSupport<T> {

@@ -256,6 +256,11 @@ public final class ParquetReader<U, S> implements Spliterator<S>, Closeable {
                     }
                 };
             }
+
+            @Override
+            public String toString() {
+                return "InputFile[" + file.getAbsolutePath() + "]";
+            }
         };
     }
 }
